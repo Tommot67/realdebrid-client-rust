@@ -1,4 +1,5 @@
-mod data_struct;
+pub mod data_struct;
+
 use std::collections::HashMap;
 use std::thread;
 use std::time::{Duration, SystemTime};
