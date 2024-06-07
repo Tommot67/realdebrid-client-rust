@@ -285,7 +285,10 @@ impl RDTraitAsync for RDClient {
     /// Unrestrict a link.
     async fn unrestrict_link(&self, link: String, hoster_password: Option<String>, remote: Option<bool>) -> Result<Unrestrict, RDError> {
         let mut params = HashMap::new();
-        params.insert("link", link);
+        params.insert("link", link.clone());
+
+        println!("Link = {}", link);
+
         if hoster_password.is_some() {
             params.insert("password", hoster_password.unwrap());
         }
