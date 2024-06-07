@@ -7,7 +7,13 @@ use crate::data_struct::unrestrict::Unrestrict;
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Getters)]
 pub struct StreamingTranscode {
     #[getset(get = "pub")]
-    result: HashMap<String, HashMap<String, String>>,
+    apple: HashMap<String, String>,
+    #[getset(get = "pub")]
+    dash: HashMap<String, String>,
+    #[getset(get = "pub")]
+    liveMP4: HashMap<String, String>,
+    #[getset(get = "pub")]
+    h264WebM: HashMap<String, String>,
 }
 
 #[derive(Debug , Default, Serialize, Deserialize, Clone, Getters)]
