@@ -433,6 +433,11 @@ impl RDTraitAsync for RDClient {
             Err(RDError::BAD_TOKEN)
         }
         else {
+            dbg!({
+                let temp = response.text().await.unwrap();
+                println!("{}", temp);
+                return Ok(serde_json::from_str::<StreamingTranscode>(&*temp).unwrap());
+            });
             Ok(response.json::<StreamingTranscode>().await.unwrap())
         }
     }
