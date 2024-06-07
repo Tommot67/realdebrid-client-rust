@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::collections::HashMap;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
@@ -18,7 +17,7 @@ pub struct MediaDetails {
     #[getset(get = "pub")]
     audio: Option<HashMap<String, AudioDetails>>,
     #[getset(get = "pub")]
-    subtitles: Option<Vec<String>>,
+    subtitles: Option<Vec<HashMap<String, SubtitleDetails>>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Getters)]
