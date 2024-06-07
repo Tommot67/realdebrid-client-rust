@@ -459,6 +459,11 @@ impl RDTraitAsync for RDClient {
             Err(RDError::PROBLEM_FINDING_METADATA)
         }
         else {
+            dbg!({
+                let temp = response.text().await.unwrap();
+                println!("{}", temp);
+                return Ok(serde_json::from_str::<MediaInfo>(&*temp).unwrap());
+            });
             Ok(response.json::<MediaInfo>().await.unwrap())
         }
     }
