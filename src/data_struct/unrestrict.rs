@@ -57,7 +57,7 @@ pub struct Unrestrict {
     #[getset(get = "pub")]
     id: String,
     #[getset(get = "pub")]
-    filename: u64,
+    filename: String,
     #[getset(get = "pub")]
     mimeType: String,
     #[getset(get = "pub")]

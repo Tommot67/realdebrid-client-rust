@@ -287,8 +287,6 @@ impl RDTraitAsync for RDClient {
         let mut params = HashMap::new();
         params.insert("link", link.clone());
 
-        println!("Link = {}", link);
-
         if hoster_password.is_some() {
             params.insert("password", hoster_password.unwrap());
         }
