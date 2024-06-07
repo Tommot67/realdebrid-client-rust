@@ -1,1 +1,1 @@
-# Real Debrid Client for Rsut
+# Real Debrid Client for Rust
