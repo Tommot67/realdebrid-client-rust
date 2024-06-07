@@ -17,7 +17,7 @@ pub struct MediaDetails {
     #[getset(get = "pub")]
     audio: Option<HashMap<String, AudioDetails>>,
     #[getset(get = "pub")]
-    subtitles: Option<HashMap<String, SubtitleDetails>>,
+    subtitles: Option<Vec<HashMap<String, SubtitleDetails>>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Getters)]
