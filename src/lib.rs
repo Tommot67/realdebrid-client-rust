@@ -725,6 +725,8 @@ impl RDTraitAsync for RDClient {
             ParamsTorrentFile::FROM_IDS(d) => params.insert("files", d.join(",")),
         };
 
+        println!("{:?}", params);
+
         let response = Client::new().post(Self::create_link(format!("torrents/selectFiles/{}", id_torrent).as_str(), None)).header("Authorization", self.authorization.to_string()).form(&params).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
