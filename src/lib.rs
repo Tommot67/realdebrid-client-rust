@@ -23,7 +23,8 @@ const CLIENT_ID: &'static str = "X245A4XAIBGVM";
 /// Real-Debrid API Documentation : https://api.real-debrid.com/
 #[derive(Default, Debug, Clone)]
 pub struct RDClient {
-    authorization: String,
+    client: Client,
+    token: String,
     refresh_authorization: Option<AuthRefresh>,
 }
 
@@ -103,7 +104,7 @@ impl RDTrait for RDClient {
     
     /// Create new RDClient with api key.
     fn new(api_key: String) -> RDClient {
-        RDClient { authorization: Self::create_auth(api_key), refresh_authorization: None }
+        RDClient { client: Client::new(), token: api_key, refresh_authorization: None }
     }
 
     /// Check if oauth2 is valid or if is necessary to refresh.
@@ -119,7 +120,7 @@ impl RDTrait for RDClient {
 
     /// Change current api key with new api key.
     fn change_api_key(&mut self, api_key: String) {
-        self.authorization = Self::create_auth(api_key);
+        self.token = api_key;
     }
 
     /// Create link with BASE_URL and other part add options.
@@ -184,7 +185,7 @@ impl RDTraitAsync for RDClient {
 
         let auth_refresh = AuthRefresh { client_id: result2.client_id , client_secret: result2.client_secret, refresh_token: result3.refresh_token, auth_time: SystemTime::now(), expires_in: result3.expires_in};
 
-        Ok(RDClient { authorization: format!("{} {}", result3.token_type, result3.access_token), refresh_authorization: Some(auth_refresh) })
+        Ok(RDClient { client, token: result3.access_token, refresh_authorization: Some(auth_refresh) })
     }
 
     /// Refresh RDClient when use oauth2.
@@ -200,7 +201,7 @@ impl RDTraitAsync for RDClient {
             params.insert("code", auth_refresh.refresh_token);
             params.insert("grant_type", "http://oauth.net/grant_type/device/1.0".to_string());
 
-            let response = Client::new().post("https://api.real-debrid.com/oauth/v2/token").form(&params).send().await.unwrap();
+            let response = self.client.post("https://api.real-debrid.com/oauth/v2/token").form(&params).send().await.unwrap();
             if response.status() != StatusCode::OK {
                 self.refresh_authorization = None;
                 return Err(RDError::REFRESH_FAILED);
@@ -221,18 +222,18 @@ impl RDTraitAsync for RDClient {
 
     /// Get server time.
     async fn get_time() -> String {
-        Client::new().get(Self::create_link("time", None)).send().await.unwrap().text().await.unwrap()
+        reqwest::get(Self::create_link("time", None)).await.unwrap().text().await.unwrap()
     }
 
     /// Get server time in ISO.
     async fn get_time_iso() -> String {
-        Client::new().get(Self::create_link("time/iso", None)).send().await.unwrap().text().await.unwrap()
+        reqwest::get(Self::create_link("time/iso", None)).await.unwrap().text().await.unwrap()
     }
 
     /// Disable current access token
     async fn disable_access_token(&self) -> Result<(), ()> {
 
-        if Client::new().get(Self::create_link("disable_access_token", None)).header("Authorization", self.authorization.to_string()).send().await.unwrap().status() == StatusCode::OK {
+        if self.client.get(Self::create_link("disable_access_token", None)).bearer_auth(self.token.clone()).send().await.unwrap().status() == StatusCode::OK {
             Ok(())
         }
         else {
@@ -244,7 +245,7 @@ impl RDTraitAsync for RDClient {
     /// Get current user info.
     async fn get_user(&self) -> Result<User, RDError> {
 
-        let response = Client::new().get(Self::create_link("user", None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link("user", None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -267,7 +268,7 @@ impl RDTraitAsync for RDClient {
             params.insert("password", hoster_password.unwrap());
         }
 
-        let response = Client::new().post(Self::create_link("unrestrict/check", None)).header("Authorization", self.authorization.to_string()).form(&params).send().await.unwrap();
+        let response = self.client.post(Self::create_link("unrestrict/check", None)).bearer_auth(self.token.clone()).form(&params).send().await.unwrap();
 
         if response.status() == StatusCode::SERVICE_UNAVAILABLE {
             Err(RDError::FILE_UNAVAILABLE)
@@ -293,7 +294,9 @@ impl RDTraitAsync for RDClient {
             params.insert("remote", remote.unwrap().to_string());
         }
 
-        let response = Client::new().post(Self::create_link("unrestrict/link", None)).header("Authorization", self.authorization.to_string()).form(&params).send().await.unwrap();
+        println!("{:#?}", self.client.post(Self::create_link("unrestrict/link", None)).bearer_auth(self.token.clone()).form(&params).build().unwrap());
+
+        let response = self.client.post(Self::create_link("unrestrict/link", None)).bearer_auth(self.token.clone()).form(&params).send().await.unwrap();
 
         if response.status() == StatusCode::UNAUTHORIZED {
             Err(RDError::BAD_TOKEN)
@@ -312,7 +315,7 @@ impl RDTraitAsync for RDClient {
         let mut params = HashMap::new();
         params.insert("link", link);
 
-        let response = Client::new().post(Self::create_link("unrestrict/folder", None)).header("Authorization", self.authorization.to_string()).form(&params).send().await.unwrap();
+        let response = self.client.post(Self::create_link("unrestrict/folder", None)).bearer_auth(self.token.clone()).form(&params).send().await.unwrap();
 
         if response.status() == StatusCode::UNAUTHORIZED {
             Err(RDError::BAD_TOKEN)
@@ -329,7 +332,7 @@ impl RDTraitAsync for RDClient {
     /// Decrypt container file.
     async fn unrestrict_decrypt_special_folder(&self) -> Result<Vec<String>, RDError> {
 
-        let response = Client::new().put(Self::create_link("unrestrict/containerFile", None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.put(Self::create_link("unrestrict/containerFile", None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::UNAUTHORIZED {
             Err(RDError::BAD_TOKEN)
@@ -354,7 +357,7 @@ impl RDTraitAsync for RDClient {
         let mut params = HashMap::new();
         params.insert("link", link);
 
-        let response = Client::new().post(Self::create_link("unrestrict/containerLink", None)).header("Authorization", self.authorization.to_string()).form(&params).send().await.unwrap();
+        let response = self.client.post(Self::create_link("unrestrict/containerLink", None)).bearer_auth(self.token.clone()).form(&params).send().await.unwrap();
 
         if response.status() == StatusCode::UNAUTHORIZED {
             Err(RDError::BAD_TOKEN)
@@ -371,7 +374,7 @@ impl RDTraitAsync for RDClient {
     /// Traffic informations for limited hosters.
     async fn get_traffic(&self) -> Result<Traffics, RDError> {
 
-        let response = Client::new().get(Self::create_link("traffic", None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link("traffic", None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -398,7 +401,7 @@ impl RDTraitAsync for RDClient {
             params.push_str(format!("end={}&", end.unwrap()).as_str());
         }
 
-        let response = Client::new().get(Self::create_link("traffic/details", Some(params.as_str()))).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link("traffic/details", Some(params.as_str()))).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -424,7 +427,7 @@ impl RDTraitAsync for RDClient {
             ParamsStreaming::FROM_ID(d) => id_streaming = d,
         };
 
-        let response = Client::new().get(Self::create_link(format!("streaming/transcode/{}", id_streaming).as_str(), None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link(format!("streaming/transcode/{}", id_streaming).as_str(), None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -447,7 +450,7 @@ impl RDTraitAsync for RDClient {
             ParamsStreaming::FROM_ID(d) => id_streaming = d,
         };
 
-        let response = Client::new().get(Self::create_link(format!("streaming/mediaInfos/{}", id_streaming).as_str(), None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link(format!("streaming/mediaInfos/{}", id_streaming).as_str(), None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -478,7 +481,7 @@ impl RDTraitAsync for RDClient {
         }
 
 
-        let response = Client::new().get(Self::create_link("downloads", Some(params.as_str()))).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link("downloads", Some(params.as_str()))).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -508,7 +511,7 @@ impl RDTraitAsync for RDClient {
             ParamsDownload::FROM_ID(d) => id_remove = d,
         }
 
-        let response = Client::new().delete(Self::create_link(format!("downloads/delete/{}",id_remove).as_str(), None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.delete(Self::create_link(format!("downloads/delete/{}",id_remove).as_str(), None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -546,7 +549,7 @@ impl RDTraitAsync for RDClient {
             params.push_str(format!("filter={}", filter.unwrap()).as_str());
         }
 
-        let response = Client::new().get(Self::create_link("torrents", Some(params.as_str()))).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link("torrents", Some(params.as_str()))).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -578,7 +581,7 @@ impl RDTraitAsync for RDClient {
             ParamsTorrent::FROM_ID(d) => id_torrent = d,
         }
 
-        let response = Client::new().get(Self::create_link(format!("torrents/info/{}",id_torrent).as_str(), None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link(format!("torrents/info/{}",id_torrent).as_str(), None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -597,7 +600,7 @@ impl RDTraitAsync for RDClient {
 
     /// Get currently active torrents number.
     async fn get_torrents_active_count(&self) -> Result<TorrentCount, RDError> {
-        let response = Client::new().get(Self::create_link("torrents/activeCount", None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link("torrents/activeCount", None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -612,7 +615,7 @@ impl RDTraitAsync for RDClient {
 
     /// Get available hosts.
     async fn get_torrents_available_hosts(&self) -> Result<Vec<TorrentHost>, RDError> {
-        let response = Client::new().get(Self::create_link("torrents/availableHosts", None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link("torrents/availableHosts", None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -644,7 +647,7 @@ impl RDTraitAsync for RDClient {
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).await.unwrap();
 
-        let response = Client::new().put(Self::create_link("torrents/addTorrent", Some(params.as_str()))).header("Authorization", self.authorization.to_string()).body(buffer).send().await.unwrap();
+        let response = self.client.put(Self::create_link("torrents/addTorrent", Some(params.as_str()))).bearer_auth(self.token.clone()).body(buffer).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::NOT_PREMIUM)
@@ -680,9 +683,7 @@ impl RDTraitAsync for RDClient {
             };
         }
 
-        println!("{:?}", params);
-
-        let response = Client::new().post(Self::create_link("torrents/addMagnet", None)).header("Authorization", self.authorization.to_string()).form(&params).send().await.unwrap();
+        let response = self.client.post(Self::create_link("torrents/addMagnet", None)).form(&params).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::NOT_PREMIUM)
@@ -725,9 +726,7 @@ impl RDTraitAsync for RDClient {
             ParamsTorrentFile::FROM_IDS(d) => params.insert("files", d.join(",")),
         };
 
-        println!("{:?}", params);
-
-        let response = Client::new().post(Self::create_link(format!("torrents/selectFiles/{}", id_torrent).as_str(), None)).header("Authorization", self.authorization.to_string()).form(&params).send().await.unwrap();
+        let response = self.client.post(Self::create_link(format!("torrents/selectFiles/{}", id_torrent).as_str(), None)).bearer_auth(self.token.clone()).form(&params).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::NOT_PREMIUM)
@@ -763,7 +762,7 @@ impl RDTraitAsync for RDClient {
             ParamsTorrent::FROM_ID(d) => id_remove = d,
         }
 
-        let response = Client::new().delete(Self::create_link(format!("torrent/delete/{}",id_remove).as_str(), None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.delete(Self::create_link(format!("torrent/delete/{}",id_remove).as_str(), None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::FORBIDDEN {
             Err(RDError::PERMISSION_DENIED)
@@ -786,7 +785,7 @@ impl RDTraitAsync for RDClient {
 
     /// Get supported hosts.
     async fn get_host() -> Hosts {
-        let response = Client::new().get(Self::create_link("hosts", None)).send().await.unwrap();
+        let response = reqwest::get(Self::create_link("hosts", None)).await.unwrap();
         let mut hosts = Hosts::default();
         hosts.result = response.json::<HashMap<String, Host>>().await.unwrap();
         hosts.with_status = false;
@@ -795,22 +794,22 @@ impl RDTraitAsync for RDClient {
 
     /// Get all supported regex.
     async fn get_host_regex() -> Vec<String> {
-        Client::new().get(Self::create_link("hosts/regex", None)).send().await.unwrap().json::<Vec<String>>().await.unwrap()
+        reqwest::get(Self::create_link("hosts/regex", None)).await.unwrap().json::<Vec<String>>().await.unwrap()
     }
 
     /// Get all supported regex for folder links.
     async fn get_host_regex_folder() -> Vec<String> {
-        Client::new().get(Self::create_link("hosts/regexFolder", None)).send().await.unwrap().json::<Vec<String>>().await.unwrap()
+        reqwest::get(Self::create_link("hosts/regexFolder", None)).await.unwrap().json::<Vec<String>>().await.unwrap()
     }
 
     /// Get all supported domains.
     async fn get_host_domains() -> Vec<String> {
-        Client::new().get(Self::create_link("hosts/domains", None)).send().await.unwrap().json::<Vec<String>>().await.unwrap()
+        reqwest::get(Self::create_link("hosts/domains", None)).await.unwrap().json::<Vec<String>>().await.unwrap()
     }
 
     /// Get status of hosters.
     async fn get_host_with_status(&self) -> Result<Hosts, RDError> {
-        let response = Client::new().get(Self::create_link("hosts/status", None)).header("Authorization", self.authorization.to_string()).send().await.unwrap();
+        let response = self.client.get(Self::create_link("hosts/status", None)).bearer_auth(self.token.clone()).send().await.unwrap();
 
         if response.status() == StatusCode::UNAUTHORIZED {
             Err(RDError::BAD_TOKEN)
@@ -829,12 +828,11 @@ impl RDTraitAsync for RDClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[tokio::test]
     async fn it_works() {
 
-        //code here
+
 
     }
 }

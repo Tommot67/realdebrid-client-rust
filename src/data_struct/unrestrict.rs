@@ -53,6 +53,7 @@ pub struct UnrestrictAlternative {
  */
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, Getters)]
+#[allow(non_snake_case)]
 pub struct Unrestrict {
     #[getset(get = "pub")]
     id: String,

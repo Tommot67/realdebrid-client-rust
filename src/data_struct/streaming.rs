@@ -5,6 +5,7 @@ use crate::data_struct::download::Download;
 use crate::data_struct::unrestrict::Unrestrict;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Getters)]
+#[allow(non_snake_case)]
 pub struct StreamingTranscode {
     #[getset(get = "pub")]
     apple: HashMap<String, String>,
