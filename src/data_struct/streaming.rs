@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use crate::data_struct::download::Download;
+use crate::data_struct::streaming::VecOrHashMap::{Right};
 use crate::data_struct::unrestrict::Unrestrict;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Getters)]
@@ -17,6 +18,19 @@ pub struct StreamingTranscode {
     h264WebM: HashMap<String, String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum VecOrHashMap {
+    Left(Vec<String>),
+    Right(HashMap<String, SubtitleDetails>)
+}
+
+impl Default for VecOrHashMap {
+    fn default() -> Self {
+        Right(HashMap::new())
+    }
+}
+
 #[derive(Debug , Default, Serialize, Deserialize, Clone, Getters)]
 pub struct MediaDetails {
     #[getset(get = "pub")]
@@ -24,7 +38,7 @@ pub struct MediaDetails {
     #[getset(get = "pub")]
     audio: Option<HashMap<String, AudioDetails>>,
     #[getset(get = "pub")]
-    subtitles: Option<Vec<HashMap<String, SubtitleDetails>>>,
+    subtitles: VecOrHashMap,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Getters)]

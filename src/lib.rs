@@ -294,8 +294,6 @@ impl RDTraitAsync for RDClient {
             params.insert("remote", remote.unwrap().to_string());
         }
 
-        println!("{:#?}", self.client.post(Self::create_link("unrestrict/link", None)).bearer_auth(self.token.clone()).form(&params).build().unwrap());
-
         let response = self.client.post(Self::create_link("unrestrict/link", None)).bearer_auth(self.token.clone()).form(&params).send().await.unwrap();
 
         if response.status() == StatusCode::UNAUTHORIZED {
